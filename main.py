@@ -9,11 +9,11 @@ from mailer import send_mail
 READ_KEY = ""
 
 
-def download_historical(sensor_id):
+def download_historical(sensor_id, start="", end=""):
     url = (
         f"https://api.purpleair.com/v1/sensors/{sensor_id}/history/csv?"
-        f"start_timestamp={start_date}&"
-        f"end_timestamp={end_date}&"
+        f"start_timestamp={start}&"
+        f"end_timestamp={end}&"
         f"average=0&"
         f"fields=pm1.0_cf_1_a,"
         f"pm1.0_cf_1_b,"
@@ -38,19 +38,18 @@ def download_historical(sensor_id):
     return df
 
 
-df_sl = pd.read_csv("Station_List_2_Dimotiko.csv")
-df_sl = df_sl.set_index("SN")
-end_date = datetime.datetime.utcnow()
-start_date = (end_date - datetime.timedelta(minutes=15)).strftime(
+sensors = pd.read_csv("Station_List_2_Dimotiko.csv", index_col="SN")
+utc_now = datetime.datetime.utcnow()
+start_date = (utc_now - datetime.timedelta(minutes=15)).strftime(
     "%Y-%m-%dT%XZ"
 )
-end_date = end_date.strftime("%Y-%m-%dT%XZ")
+end_date = utc_now.strftime("%Y-%m-%dT%XZ")
 
-for index, row in df_sl.iterrows():
+for index, row in sensors.iterrows():
     sensor_id = row["ID"]
     sensor_name = row["Name"]
     print(sensor_name, sensor_id)
-    df = download_historical(sensor_id)
+    df = download_historical(sensor_id, start=start_date, end=end_date)
     avg = df[["pm2.5_cf_1_a", "pm2.5_cf_1_b"]].mean(axis=1)
     avg = avg.mean()
     # if avg>45:
