@@ -40,8 +40,6 @@ def download_historical(sensor_id, start="", end=""):
     return df
 
 
-
-
 def nan_where_cf_less_than_atm(df, cf_cols, atm_cols):
     for cf_col, atm_col in zip(cf_cols, atm_cols):
         df[df[cf_col] < df[atm_col]] = np.nan
@@ -91,9 +89,9 @@ utc_now = datetime.datetime.utcnow()
 start_date = (utc_now - datetime.timedelta(minutes=15)).strftime("%Y-%m-%dT%XZ")
 end_date = utc_now.strftime("%Y-%m-%dT%XZ")
 local_datetime = pd.to_datetime(utc_now, utc=True).tz_convert("Europe/Athens")
-local_datetime_formatted = local_datetime.strftime('%d/%m/%Y %X')
+local_datetime_formatted = local_datetime.strftime("%d/%m/%Y %X")
 
-df_all = pd.DataFrame(columns=["Local time", "Sensor name", "PM2.5"])
+df_all = pd.DataFrame(columns=["Τοπική Ώρα", "Σταθμός", "PM2.5 (μg/m³)"])
 for index, row in sensors.iterrows():
     sensor_id = row["ID"]
     sensor_name = row["Name"]
@@ -107,11 +105,15 @@ for index, row in sensors.iterrows():
         df["pm2.5"] = df[["pm2.5_cf_1_a", "pm2.5_cf_1_b"]].mean(axis=1)
         ratio = abs(df["pm2.5_cf_1_a"] - df["pm2.5_cf_1_b"]) / df["pm2.5"]
         df["pm2.5"][ratio > 0.2] = np.nan
-    avg = df['pm2.5'].mean().round(1)
+    avg = round(df["pm2.5"].mean(), 1)
 
-    df_all = df_all.append({"Local time":local_datetime_formatted, 
-                   "Sensor name":sensor_name, 
-                   "PM2.5":avg}, 
-                  ignore_index=True)
-if (df_all["PM2.5"]> 10).any():
+    df_all = df_all.append(
+        {
+            "Τοπική Ώρα": local_datetime_formatted,
+            "Σταθμός": sensor_name,
+            "PM2.5 (μg/m³)": avg,
+        },
+        ignore_index=True,
+    )
+if (df_all["PM2.5 (μg/m³)"] > 10).any():
     send_mail(df_all.to_html(index=False))

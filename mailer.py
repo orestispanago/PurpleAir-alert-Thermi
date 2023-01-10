@@ -43,8 +43,7 @@ def send_mail(html_table):
     msg.attach(MIMEText(TITLE, "plain"))
     msg.attach(MIMEText(html_table, "html"))
     msg.attach(MIMEText(DISCLAIMER, "plain"))
-    server = smtplib.SMTP("smtp.gmail.com", 587)
-    server.starttls()
+    server = smtplib.SMTP_SSL("smtp.upatras.gr", 465)
     server.login(EMAIL_USER, EMAIL_PASS)  # password for the pi mail account
     text = msg.as_string()
     server.sendmail(EMAIL_USER, EMAIL_RECIPIENTS, text)
