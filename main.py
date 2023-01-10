@@ -1,6 +1,8 @@
 import datetime
+import fnmatch
 from io import StringIO
 
+import numpy as np
 import pandas as pd
 import requests
 
@@ -38,20 +40,78 @@ def download_historical(sensor_id, start="", end=""):
     return df
 
 
+
+
+def nan_where_cf_less_than_atm(df, cf_cols, atm_cols):
+    for cf_col, atm_col in zip(cf_cols, atm_cols):
+        df[df[cf_col] < df[atm_col]] = np.nan
+
+
+def nan_particle_order(df):
+    # Implement QC based on pm1>pm2.5>pm10
+    # sensor A
+    df[df["pm1.0_cf_1_a"] > df["pm2.5_cf_1_a"]] = np.nan
+    df[df["pm1.0_cf_1_a"] > df["pm10.0_cf_1_a"]] = np.nan
+    df[df["pm2.5_cf_1_a"] > df["pm10.0_cf_1_a"]] = np.nan
+    # sensor B
+    df[df["pm1.0_cf_1_b"] > df["pm2.5_cf_1_b"]] = np.nan
+    df[df["pm1.0_cf_1_b"] > df["pm10.0_cf_1_b"]] = np.nan
+    df[df["pm2.5_cf_1_b"] > df["pm10.0_cf_1_b"]] = np.nan
+
+
+def nan_where_negative(df, cf_cols):
+    for cf_col in cf_cols:
+        df[df[cf_col] < 0] = np.nan
+
+
+def apply_calibration_factor(df):
+    df["pm1.0_cf_1_a"] = df["pm1.0_cf_1_a"] * 0.52 - 0.18
+    df["pm1.0_cf_1_b"] = df["pm1.0_cf_1_b"] * 0.52 - 0.18
+    df["pm2.5_cf_1_a"] = df["pm2.5_cf_1_a"] * 0.42 + 0.26
+    df["pm2.5_cf_1_b"] = df["pm2.5_cf_1_b"] * 0.42 + 0.26
+    df["pm10.0_cf_1_a"] = df["pm10.0_cf_1_a"] * 0.45 + 0.02
+    df["pm10.0_cf_1_b"] = df["pm10.0_cf_1_b"] * 0.45 + 0.02
+    # Correct calibrated data when pm1<0
+    df.loc[df["pm1.0_cf_1_a"] < 16, "pm1.0_cf_1_a"] = df["pm1.0_cf_1_a"] + 0.18
+    df.loc[df["pm1.0_cf_1_b"] < 16, "pm1.0_cf_1_b"] = df["pm1.0_cf_1_b"] + 0.18
+
+
+def quality_control(df):
+    df_cols = list(df)
+    cf_cols = fnmatch.filter(df_cols, "*cf*")
+    atm_cols = fnmatch.filter(df_cols, "*atm*")
+    nan_where_cf_less_than_atm(df, cf_cols, atm_cols)
+    nan_particle_order(df)
+    nan_where_negative(df, cf_cols)
+    nan_particle_order(df)
+
+
 sensors = pd.read_csv("Station_List_2_Dimotiko.csv", index_col="SN")
 utc_now = datetime.datetime.utcnow()
-start_date = (utc_now - datetime.timedelta(minutes=15)).strftime(
-    "%Y-%m-%dT%XZ"
-)
+start_date = (utc_now - datetime.timedelta(minutes=15)).strftime("%Y-%m-%dT%XZ")
 end_date = utc_now.strftime("%Y-%m-%dT%XZ")
+local_datetime = pd.to_datetime(utc_now, utc=True).tz_convert("Europe/Athens")
+local_datetime_formatted = local_datetime.strftime('%d/%m/%Y %X')
 
+df_all = pd.DataFrame(columns=["Local time", "Sensor name", "PM2.5"])
 for index, row in sensors.iterrows():
     sensor_id = row["ID"]
     sensor_name = row["Name"]
     print(sensor_name, sensor_id)
     df = download_historical(sensor_id, start=start_date, end=end_date)
-    avg = df[["pm2.5_cf_1_a", "pm2.5_cf_1_b"]].mean(axis=1)
-    avg = avg.mean()
-    # if avg>45:
-    #     send_mail(f"TEST ipervasi ston stathmo {sensor_name}")
-# df_all.to_csv(f"Data/raw_data/{sensor_name}_{start_date}_{end_date}.csv")
+    quality_control(df)
+
+    if sensor_name == "2o Dhmotiko Thermis":
+        df["pm2.5"] = df["pm2.5_cf_1_b"]
+    else:
+        df["pm2.5"] = df[["pm2.5_cf_1_a", "pm2.5_cf_1_b"]].mean(axis=1)
+        ratio = abs(df["pm2.5_cf_1_a"] - df["pm2.5_cf_1_b"]) / df["pm2.5"]
+        df["pm2.5"][ratio > 0.2] = np.nan
+    avg = df['pm2.5'].mean().round(1)
+
+    df_all = df_all.append({"Local time":local_datetime_formatted, 
+                   "Sensor name":sensor_name, 
+                   "PM2.5":avg}, 
+                  ignore_index=True)
+if (df_all["PM2.5"]> 10).any():
+    send_mail(df_all.to_html(index=False))
