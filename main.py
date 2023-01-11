@@ -1,9 +1,9 @@
-import datetime
 import fnmatch
 import logging
 import logging.config
 import os
 import traceback
+from datetime import datetime, timedelta
 from io import StringIO
 
 import numpy as np
@@ -16,11 +16,14 @@ abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
 
-logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
+logging.config.fileConfig("logging.conf", disable_existing_loggers=True)
 
 logger = logging.getLogger(__name__)
 
 READ_KEY = ""
+PM25_ALERT_THRESHOLD = 10
+SENSORS_FILE = "Station_List_2_Dimotiko.csv"
+INTERVAL_MINUTES = 15
 
 
 def download_historical(sensor_id, start="", end=""):
@@ -119,15 +122,14 @@ def characterize_air_quality(pm_value):
         return "Πολύ κακή"
 
 
-sensors = pd.read_csv("Station_List_2_Dimotiko.csv", index_col="SN")
-utc_now = datetime.datetime.utcnow()
-start_date = (utc_now - datetime.timedelta(minutes=15)).strftime("%Y-%m-%dT%XZ")
-end_date = utc_now.strftime("%Y-%m-%dT%XZ")
-local_datetime = pd.to_datetime(utc_now, utc=True).tz_convert("Europe/Athens")
-local_datetime_formatted = local_datetime.strftime("%d/%m/%Y %X")
-
-
 def main():
+    sensors = pd.read_csv(SENSORS_FILE, index_col="SN")
+    utc_now = pd.to_datetime(datetime.utcnow(), utc=True)
+    start_date = (utc_now - timedelta(minutes=INTERVAL_MINUTES)).strftime(
+        "%Y-%m-%dT%XZ"
+    )
+    end_date = utc_now.strftime("%Y-%m-%dT%XZ")
+    local_datetime = utc_now.tz_convert("Europe/Athens").strftime("%d/%m/%Y %X")
     df_pm25 = pd.DataFrame(
         columns=[
             "Τοπική Ώρα",
@@ -145,13 +147,16 @@ def main():
         avg = round(df["pm2.5"].mean(), 1)
         air_quality = characterize_air_quality(avg)
         df_pm25.loc[len(df_pm25), df_pm25.columns] = (
-            local_datetime_formatted,
+            local_datetime,
             sensor_name,
             avg,
             air_quality,
         )
-    if (df_pm25["PM2.5 (μg/m³)"] > 0).any():
+    if (df_pm25["PM2.5 (μg/m³)"] > PM25_ALERT_THRESHOLD).any():
         send_mail(df_pm25.to_html(index=False))
+    else:
+        logger.info("PM2.5 below threshold. Main not sent.")
+    logger.debug(f"{'-' * 15} SUCCESS {'-' * 15}")
 
 
 if __name__ == "__main__":
