@@ -1,15 +1,20 @@
+import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+logger = logging.getLogger(__name__)
+
+
 EMAIL_USER = ""
 EMAIL_PASS = ""
-EMAIL_RECIPIENTS = ["giokosmopoulos@gmail.com", "orestis.panagopou@upatras.gr"]
+EMAIL_RECIPIENTS = ["orestis.panagopou@upatras.gr"]
+
 
 SUBJECT = "Δίκτυο αιωρούμενων σωματιδίων Δήμου Θέρμης"
 TITLE = """Ενημέρωση για την περιοχή του 2ου Δημοτικού Σχολείου Θέρμης\n\n\
-Σας ενημερώνουμε ότι παρατηρήθηκαν οι ακόλουθες υπερβάσεις:\n"""
-DISCLAIMER = """Προσοχή: Το παρόν περιέχει προκαταρκτικές και συνεπώς \
+Σας ενημερώνουμε ότι παρατηρήθηκαν οι ακόλουθες υπερβάσεις:\n\n"""
+DISCLAIMER = """\nΠροσοχή: Το παρόν περιέχει προκαταρκτικές και συνεπώς \
 ενδεικτικές τιμές για την ποιότητα αέρα \
 λόγω των αιωρούμενων σωματιδίων, \
 που ενδέχεται να διαφέρουν έως έναν βαθμό \
@@ -26,8 +31,8 @@ DISCLAIMER = """Προσοχή: Το παρόν περιέχει προκατα�
 Φυσικής της Ατμόσφαιρας του Πανεπιστημίου Πατρών. \
 Προορίζεται δε αποκλειστικά για ενημέρωση του εκάστοτε \
 αποδέκτη και ισχύουν πλήρως οι διατάξεις του \
-Νόμου 2121/1993 περί Πνευματικής Ιδιοκτησίας.\n\n
-*** Τέλος δελτίου ***\n\n
+Νόμου 2121/1993 περί Πνευματικής Ιδιοκτησίας.\n
+*** Τέλος δελτίου ***\n
 Εργαστήριο Φυσικής της Ατμόσφαιρας \n
 Τμήμα Φυσικής \n
 Πανεπιστήμιο Πατρών"""
@@ -44,8 +49,8 @@ def send_mail(html_table):
     msg.attach(MIMEText(html_table, "html"))
     msg.attach(MIMEText(DISCLAIMER, "plain"))
     server = smtplib.SMTP_SSL("smtp.upatras.gr", 465)
-    server.login(EMAIL_USER, EMAIL_PASS)  # password for the pi mail account
+    server.login(EMAIL_USER, EMAIL_PASS)
     text = msg.as_string()
     server.sendmail(EMAIL_USER, EMAIL_RECIPIENTS, text)
     server.quit()
-    print("Mail sent")
+    logger.info(f"Mail sent")

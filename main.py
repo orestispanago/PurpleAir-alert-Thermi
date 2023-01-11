@@ -1,5 +1,9 @@
 import datetime
 import fnmatch
+import logging
+import logging.config
+import os
+import traceback
 from io import StringIO
 
 import numpy as np
@@ -7,6 +11,14 @@ import pandas as pd
 import requests
 
 from mailer import send_mail
+
+abspath = os.path.abspath(__file__)
+dname = os.path.dirname(abspath)
+os.chdir(dname)
+
+logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
+
+logger = logging.getLogger(__name__)
 
 READ_KEY = ""
 
@@ -33,9 +45,10 @@ def download_historical(sensor_id, start="", end=""):
         f"longitude"
     )
     resp = requests.get(url, headers={"x-api-key": READ_KEY})
-    print(resp.status_code)
+    logger.debug(f"Sensor ID: {sensor_id}, Response status: {resp.status_code}")
     data = StringIO(resp.text)
     df = pd.read_csv(data, parse_dates=True, index_col="time_stamp")
+    logger.info(f"Retrieved {len(df)} records for sensor id: {sensor_id}")
     df.sort_index(inplace=True)
     return df
 
@@ -84,6 +97,28 @@ def quality_control(df):
     nan_particle_order(df)
 
 
+def calc_pm25(df, sensor_name):
+    if sensor_name == "2o Dhmotiko Thermis":
+        df["pm2.5"] = df["pm2.5_cf_1_b"]
+    else:
+        df["pm2.5"] = df[["pm2.5_cf_1_a", "pm2.5_cf_1_b"]].mean(axis=1)
+        ratio = abs(df["pm2.5_cf_1_a"] - df["pm2.5_cf_1_b"]) / df["pm2.5"]
+        df["pm2.5"][ratio > 0.2] = np.nan
+
+
+def characterize_air_quality(pm_value):
+    if pm_value < 10:
+        return "Καλή"
+    elif pm_value >= 10 and pm_value < 20:
+        return "Ικανοποιητική"
+    elif pm_value >= 20 and pm_value < 25:
+        return "Μέτρια"
+    elif pm_value >= 25 and pm_value < 50:
+        return "Κακή"
+    elif pm_value >= 50:
+        return "Πολύ κακή"
+
+
 sensors = pd.read_csv("Station_List_2_Dimotiko.csv", index_col="SN")
 utc_now = datetime.datetime.utcnow()
 start_date = (utc_now - datetime.timedelta(minutes=15)).strftime("%Y-%m-%dT%XZ")
@@ -91,29 +126,36 @@ end_date = utc_now.strftime("%Y-%m-%dT%XZ")
 local_datetime = pd.to_datetime(utc_now, utc=True).tz_convert("Europe/Athens")
 local_datetime_formatted = local_datetime.strftime("%d/%m/%Y %X")
 
-df_all = pd.DataFrame(columns=["Τοπική Ώρα", "Σταθμός", "PM2.5 (μg/m³)"])
-for index, row in sensors.iterrows():
-    sensor_id = row["ID"]
-    sensor_name = row["Name"]
-    print(sensor_name, sensor_id)
-    df = download_historical(sensor_id, start=start_date, end=end_date)
-    quality_control(df)
 
-    if sensor_name == "2o Dhmotiko Thermis":
-        df["pm2.5"] = df["pm2.5_cf_1_b"]
-    else:
-        df["pm2.5"] = df[["pm2.5_cf_1_a", "pm2.5_cf_1_b"]].mean(axis=1)
-        ratio = abs(df["pm2.5_cf_1_a"] - df["pm2.5_cf_1_b"]) / df["pm2.5"]
-        df["pm2.5"][ratio > 0.2] = np.nan
-    avg = round(df["pm2.5"].mean(), 1)
-
-    df_all = df_all.append(
-        {
-            "Τοπική Ώρα": local_datetime_formatted,
-            "Σταθμός": sensor_name,
-            "PM2.5 (μg/m³)": avg,
-        },
-        ignore_index=True,
+def main():
+    df_pm25 = pd.DataFrame(
+        columns=[
+            "Τοπική Ώρα",
+            "Σταθμός",
+            "PM2.5 (μg/m³)",
+            "Κατάσταση ποιότητας αέρα",
+        ]
     )
-if (df_all["PM2.5 (μg/m³)"] > 10).any():
-    send_mail(df_all.to_html(index=False))
+    for index, row in sensors.iterrows():
+        sensor_id = row["ID"]
+        sensor_name = row["Name"]
+        df = download_historical(sensor_id, start=start_date, end=end_date)
+        quality_control(df)
+        calc_pm25(df, sensor_name)
+        avg = round(df["pm2.5"].mean(), 1)
+        air_quality = characterize_air_quality(avg)
+        df_pm25.loc[len(df_pm25), df_pm25.columns] = (
+            local_datetime_formatted,
+            sensor_name,
+            avg,
+            air_quality,
+        )
+    if (df_pm25["PM2.5 (μg/m³)"] > 0).any():
+        send_mail(df_pm25.to_html(index=False))
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except:
+        logger.error("uncaught exception: %s", traceback.format_exc())
