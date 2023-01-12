@@ -20,8 +20,8 @@ logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
 READ_KEY = ""
-PM25_ALERT_THRESHOLD = 10
-SENSORS_FILE = "Station_List_2_Dimotiko.csv"
+SENSORS_FILE = "Station_List_2_Dimotiko_no_Mandritsa.csv"
+PM25_ALERT_THRESHOLD = 20
 INTERVAL_MINUTES = 15
 
 

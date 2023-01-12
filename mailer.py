@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 EMAIL_USER = ""
 EMAIL_PASS = ""
-EMAIL_RECIPIENTS = ["orestispanago@gmail.com", "orestis.panagopou@upatras.gr"]
+EMAIL_RECIPIENTS = ["giokosmopo@upatras.gr", "akaza@upatras.gr"]
 
 
 SUBJECT = "Δίκτυο αιωρούμενων σωματιδίων Δήμου Θέρμης"
@@ -29,7 +29,8 @@ def send_mail(html_table):
     msg["To"] = toaddr
     msg["Subject"] = SUBJECT
     msg.attach(MIMEText(BODY.format(html_table=html_table), "html"))
-    server = smtplib.SMTP_SSL("smtp.upatras.gr", 465)
+    server = smtplib.SMTP("smtp.gmail.com", 587)
+    server.starttls()
     server.login(EMAIL_USER, EMAIL_PASS)
     text = msg.as_string()
     server.sendmail(EMAIL_USER, EMAIL_RECIPIENTS, text)
