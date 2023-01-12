@@ -1,3 +1,4 @@
+from mailer import send_mail
 import fnmatch
 import logging
 import logging.config
@@ -10,10 +11,8 @@ import numpy as np
 import pandas as pd
 import requests
 
-from mailer import send_mail
 
-abspath = os.path.abspath(__file__)
-dname = os.path.dirname(abspath)
+dname = os.path.dirname(__file__)
 os.chdir(dname)
 
 logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
@@ -157,7 +156,7 @@ def main():
     if (df_pm25["PM2.5 (μg/m³)"] > PM25_ALERT_THRESHOLD).any():
         send_mail(df_pm25.to_html(index=False))
     else:
-        logger.info("PM2.5 below threshold. Main not sent.")
+        logger.info("PM2.5 below threshold. Mail not sent.")
     logger.debug(f"{'-' * 15} SUCCESS {'-' * 15}")
 
 
