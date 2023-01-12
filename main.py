@@ -16,7 +16,7 @@ abspath = os.path.abspath(__file__)
 dname = os.path.dirname(abspath)
 os.chdir(dname)
 
-logging.config.fileConfig("logging.conf", disable_existing_loggers=True)
+logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +48,8 @@ def download_historical(sensor_id, start="", end=""):
         f"longitude"
     )
     resp = requests.get(url, headers={"x-api-key": READ_KEY})
-    logger.debug(f"Sensor ID: {sensor_id}, Response status: {resp.status_code}")
+    logger.debug(
+        f"Sensor ID: {sensor_id}, Response status: {resp.status_code}")
     data = StringIO(resp.text)
     df = pd.read_csv(data, parse_dates=True, index_col="time_stamp")
     logger.info(f"Retrieved {len(df)} records for sensor id: {sensor_id}")
@@ -129,7 +130,8 @@ def main():
         "%Y-%m-%dT%XZ"
     )
     end_date = utc_now.strftime("%Y-%m-%dT%XZ")
-    local_datetime = utc_now.tz_convert("Europe/Athens").strftime("%d/%m/%Y %X")
+    local_datetime = utc_now.tz_convert(
+        "Europe/Athens").strftime("%d/%m/%Y %X")
     df_pm25 = pd.DataFrame(
         columns=[
             "Τοπική Ώρα",
