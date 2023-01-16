@@ -1,4 +1,3 @@
-from mailer import send_mail
 import fnmatch
 import logging
 import logging.config
@@ -11,6 +10,7 @@ import numpy as np
 import pandas as pd
 import requests
 
+from mailer import send_mail
 
 dname = os.path.dirname(__file__)
 os.chdir(dname)
@@ -47,8 +47,7 @@ def download_historical(sensor_id, start="", end=""):
         f"longitude"
     )
     resp = requests.get(url, headers={"x-api-key": READ_KEY})
-    logger.debug(
-        f"Sensor ID: {sensor_id}, Response status: {resp.status_code}")
+    logger.debug(f"Sensor ID: {sensor_id}, Response status: {resp.status_code}")
     data = StringIO(resp.text)
     df = pd.read_csv(data, parse_dates=True, index_col="time_stamp")
     logger.info(f"Retrieved {len(df)} records for sensor id: {sensor_id}")
@@ -129,8 +128,7 @@ def main():
         "%Y-%m-%dT%XZ"
     )
     end_date = utc_now.strftime("%Y-%m-%dT%XZ")
-    local_datetime = utc_now.tz_convert(
-        "Europe/Athens").strftime("%d/%m/%Y %X")
+    local_datetime = utc_now.tz_convert("Europe/Athens").strftime("%d/%m/%Y %X")
     df_pm25 = pd.DataFrame(
         columns=[
             "Τοπική Ώρα",
@@ -144,6 +142,7 @@ def main():
         sensor_name = row["Name"]
         df = download_historical(sensor_id, start=start_date, end=end_date)
         quality_control(df)
+        apply_calibration_factor(df)
         calc_pm25(df, sensor_name)
         avg = round(df["pm2.5"].mean(), 1)
         air_quality = characterize_air_quality(avg)
