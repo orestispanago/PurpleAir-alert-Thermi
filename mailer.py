@@ -1,15 +1,22 @@
 import logging
+import os
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-import os
 
 logger = logging.getLogger(__name__)
 
 
 EMAIL_USER = ""
 EMAIL_PASS = ""
-EMAIL_RECIPIENTS = ["giokosmopo@upatras.gr", "akaza@upatras.gr"]
+EMAIL_RECIPIENTS = [
+    "giokosmopo@upatras.gr",
+    "akaza@upatras.gr",
+    "sylgo2thermi@gmail.com",
+    "mail@2dim-therm.thess.sch.gr",
+    "grigoriadoumaria100@gmail.com",
+    "e.adamopoulou@thermi.gov.gr",
+]
 
 
 SUBJECT = "Δίκτυο αιωρούμενων σωματιδίων Δήμου Θέρμης"

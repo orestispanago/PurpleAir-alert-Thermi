@@ -20,7 +20,7 @@ logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
 READ_KEY = ""
-SENSORS_FILE = "Station_List_2_Dimotiko_no_Mandritsa.csv"
+SENSORS_FILE = "sensors.csv"
 PM25_ALERT_THRESHOLD = 20
 INTERVAL_MINUTES = 15
 
@@ -152,7 +152,10 @@ def main():
             avg,
             air_quality,
         )
-    if (df_pm25["PM2.5 (μg/m³)"] > PM25_ALERT_THRESHOLD).any():
+    control_value = df_pm25.loc[
+        df_pm25["Σταθμός"] == "2o Dhmotiko Thermis", "PM2.5 (μg/m³)"
+    ].item()
+    if control_value > PM25_ALERT_THRESHOLD:
         send_mail(df_pm25.to_html(index=False))
     else:
         logger.info("PM2.5 below threshold. Mail not sent.")
